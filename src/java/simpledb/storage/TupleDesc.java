@@ -191,7 +191,8 @@ public class TupleDesc implements Serializable {
 
     public boolean equals(Object o) {
         // some code goes here
-        if (!(o instanceof TupleDesc)) return false;
+        if (this == o) return true;
+        if (o == null || this.getClass() != o.getClass()) return false;
         TupleDesc tupleDesc = (TupleDesc) o;
         if (this.getSize() != tupleDesc.getSize()) return false;
         for (int i = 0; i < this.items.size(); i++) {
@@ -205,7 +206,7 @@ public class TupleDesc implements Serializable {
     public int hashCode() {
         // If you want to use TupleDesc as keys for HashMap, implement this so
         // that equal objects have equals hashCode() results
-        throw new UnsupportedOperationException("unimplemented");
+        return Objects.hash(this.items, this.size);
     }
 
     /**

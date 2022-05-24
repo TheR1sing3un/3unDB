@@ -1,6 +1,7 @@
 package simpledb.storage;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * A RecordId is a reference to a specific tuple on a specific page of a
@@ -54,7 +55,8 @@ public class RecordId implements Serializable {
     @Override
     public boolean equals(Object o) {
         // some code goes here
-        if (!(o instanceof RecordId)) return false;
+        if (this == o) return true;
+        if (o == null || this.getClass() != o.getClass()) return false;
         RecordId recordId = (RecordId) o;
         return this.pageId.equals(recordId.pageId) && this.tupleNo == recordId.tupleNo;
     }
@@ -68,7 +70,7 @@ public class RecordId implements Serializable {
     @Override
     public int hashCode() {
         // some code goes here
-        return this.pageId.hashCode() + this.tupleNo;
+        return Objects.hash(this.pageId, this.tupleNo);
     }
 
 }
