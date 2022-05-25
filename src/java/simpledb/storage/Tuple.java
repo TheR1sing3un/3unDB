@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 
 /**
  * Tuple maintains information about the contents of a tuple. Tuples have a
@@ -119,5 +120,13 @@ public class Tuple implements Serializable {
     public void resetTupleDesc(TupleDesc td) {
         // some code goes here
         this.tupleDesc = td;
+    }
+
+    public static Tuple merge(Tuple tuple1, Tuple tuple2) {
+        Tuple tuple = new Tuple(TupleDesc.merge(tuple1.getTupleDesc(), tuple2.getTupleDesc()));
+        int index = 0;
+        tuple.fields.addAll(tuple1.fields);
+        tuple.fields.addAll(tuple2.fields);
+        return tuple;
     }
 }

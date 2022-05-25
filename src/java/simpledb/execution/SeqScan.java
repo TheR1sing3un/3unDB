@@ -155,7 +155,6 @@ public class SeqScan implements OpIterator {
     public void close() {
         // some code goes here
         this.iterator.close();
-        this.iterator = null;
     }
 
     public void rewind() throws DbException, NoSuchElementException, TransactionAbortedException {
