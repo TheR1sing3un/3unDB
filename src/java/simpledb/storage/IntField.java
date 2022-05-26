@@ -31,6 +31,10 @@ public class IntField implements Field {
         return Integer.toString(value);
     }
 
+    public int getVal() {
+        return value;
+    }
+
     public int hashCode() {
         return value;
     }
