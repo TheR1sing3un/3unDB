@@ -9,10 +9,8 @@ import simpledb.transaction.TransactionId;
 
 import java.io.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.security.PrivateKey;
+import java.util.*;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -27,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class BufferPool {
 
-    private Map<PageId, Page> pageMap;
+    private LRUPageCache pageCache;
 
     private int pageNum;
 
@@ -53,7 +51,7 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // some code goes here
         this.pageNum = numPages;
-        this.pageMap = new HashMap<>();
+        this.pageCache = new LRUPageCache(numPages, this::evictPage);
     }
 
     public static int getPageSize() {
@@ -88,19 +86,16 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
         // some code goes here
-        if (!pageMap.containsKey(pid)) {
+        if (!pageCache.containsKey(pid)) {
             // if not absent, get from disk
-            if (this.pageMap.size() >= this.pageNum) {
-                throw new DbException("out of range pages");
-            }
             DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
             HeapFile heapFile = (HeapFile) dbFile;
             Page page = heapFile.readPage(pid);
             // add in BufferPool
-            this.pageMap.put(pid, page);
+            this.pageCache.put(pid, page);
             return page;
         }
-        return this.pageMap.get(pid);
+        return this.pageCache.get(pid);
     }
 
     /**
@@ -173,7 +168,7 @@ public class BufferPool {
         // replace the dirty pages so that future requests see up-to-date pages
         for (Page page : pages) {
             page.markDirty(true, tid);
-            this.pageMap.put(page.getId(), page);
+            this.pageCache.put(page.getId(), page);
         }
     }
 
@@ -200,7 +195,7 @@ public class BufferPool {
         // replace the dirty pages so that future requests see up-to-date pages
         for (Page page : pages) {
             page.markDirty(true, tid);
-            this.pageMap.put(page.getId(), page);
+            this.pageCache.put(page.getId(), page);
         }
     }
 
@@ -212,7 +207,10 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
-
+        for (Page page : this.pageCache.values()) {
+            flushPage(page.getId());
+            page.markDirty(false, null);
+        }
     }
 
     /**
@@ -227,6 +225,7 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+        this.pageCache.remove(pid);
     }
 
     /**
@@ -237,6 +236,9 @@ public class BufferPool {
     private synchronized void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+        Page page = this.pageCache.get(pid);
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+        dbFile.writePage(page);
     }
 
     /**
@@ -254,6 +256,19 @@ public class BufferPool {
     private synchronized void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+
+    }
+
+    public void evictPage(Page page) {
+        if (page.isDirty() != null){
+            // dirty, flush
+            DbFile dbFile = Database.getCatalog().getDatabaseFile(page.getId().getTableId());
+            try {
+                dbFile.writePage(page);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
 }
