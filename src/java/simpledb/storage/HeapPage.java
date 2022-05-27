@@ -23,9 +23,12 @@ public class HeapPage implements Page {
     final byte[] header;
     final Tuple[] tuples;
     final int numSlots;
-
     byte[] oldData;
     private final Byte oldDataLock = (byte) 0;
+
+    private boolean dirty = false;
+
+    private TransactionId dirtyMakerTid = null;
 
     /**
      * Create a HeapPage from a set of bytes of data read from disk.
@@ -77,7 +80,6 @@ public class HeapPage implements Page {
         // some code goes here
         // tupleNum = (total bit of one page) / (header + (peer tuple size) * 8)
         return (int) Math.floor(BufferPool.getPageSize() * 8) / (1 + this.td.getSize() * 8);
-
     }
 
     /**
@@ -255,6 +257,16 @@ public class HeapPage implements Page {
     public void deleteTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+        // check if the target tuple isn't located on this page
+        RecordId recordId = t.getRecordId();
+        int tupleNumber = recordId.getTupleNumber();
+        if (recordId.getPageId() != this.pid || tupleNumber >= this.numSlots || !isSlotUsed(tupleNumber)) {
+            throw new DbException("page doesn't contain this tuple");
+        }
+        // delete the tuple in memory
+        this.tuples[tupleNumber] = null;
+        // mark the header
+        this.markSlotUsed(tupleNumber, false);
     }
 
     /**
@@ -268,6 +280,14 @@ public class HeapPage implements Page {
     public void insertTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+        int numTuples = this.getNumEmptySlots();
+        if (numTuples == 0) {
+            throw new DbException("page is full");
+        }
+        int slotIndex = findFirstEmptySlot();
+        t.setRecordId(new RecordId(this.pid, slotIndex));
+        this.tuples[slotIndex] = t;
+        this.markSlotUsed(slotIndex, true);
     }
 
     /**
@@ -277,6 +297,8 @@ public class HeapPage implements Page {
     public void markDirty(boolean dirty, TransactionId tid) {
         // some code goes here
         // not necessary for lab1
+        this.dirty = dirty;
+        this.dirtyMakerTid = tid;
     }
 
     /**
@@ -285,7 +307,7 @@ public class HeapPage implements Page {
     public TransactionId isDirty() {
         // some code goes here
         // Not necessary for lab1
-        return null;
+        return this.dirty ? this.dirtyMakerTid : null;
     }
 
     /**
@@ -310,12 +332,34 @@ public class HeapPage implements Page {
         return (this.header[byteNo] & (1 << bitNo)) != 0;
     }
 
+    private int findFirstEmptySlot() {
+        for (int i = 0; i < this.getNumTuples(); i++) {
+            if (!isSlotUsed(i)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     /**
      * Abstraction to fill or clear a slot on this page.
      */
     private void markSlotUsed(int i, boolean value) {
         // some code goes here
         // not necessary for lab1
+        int index = i / 8;
+        int offset = i % 8;
+        if (value) {
+            // if we want to mark it as used
+            // for example: 1011 0100 is our first header byte, we want to mark the slot-1 as used,
+            // so we should 1011 0100 | 0000 0010 = 1011 0110
+            header[index] = (byte) (header[index] | (1 << offset));
+        } else {
+            // if we want to mark it as unused
+            // for example: 1111 0100 is our first header byte, we want to mark the slot-2 as unused,
+            // so we should 1011 0100 & 1111 1011 = 1011 0000
+            header[index] = (byte) (header[index] & (0b11111111 - (1 << offset)));
+        }
     }
 
     /**
@@ -324,7 +368,13 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return Arrays.stream(this.tuples).filter(x -> x != null).iterator();
+        LinkedList<Tuple> tupleIterator = new LinkedList<>();
+        for (int i = 0; i < this.tuples.length; i++) {
+            if (isSlotUsed(i)) {
+                tupleIterator.add(this.tuples[i]);
+            }
+        }
+        return tupleIterator.iterator();
     }
 
 }

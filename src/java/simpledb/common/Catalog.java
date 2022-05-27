@@ -62,7 +62,7 @@ public class Catalog {
     // tableId -> table
     private Map<Integer, Table> tableMap;
 
-    // map -> tableId
+    // name -> tableId
     private Map<String, Integer> nameIndex;
 
     /**
